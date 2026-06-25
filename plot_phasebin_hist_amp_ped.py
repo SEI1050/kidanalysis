@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 DATA_DATE = "20260527"
 
 # phase binを何分割にするか
-N_PHASE_BINS_NEW = 10
+N_PHASE_BINS_NEW = 5
 
 # 読み込むevents CSV
 # Noneなら phase50_amp_ped/events_*.csv を全部処理

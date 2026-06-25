@@ -14,12 +14,12 @@ import matplotlib.pyplot as plt
 # 基本設定
 # ============================================================
 
-DATA_DATE = "20260527"
+DATA_DATE = "20260618"
 
 # 解析したい周波数・位置
 # Noneなら全データを解析する
-TARGET_FREQ_GHZ = 5.476
-TARGET_Z_MM = 8.5
+TARGET_FREQ_GHZ = 5.443
+TARGET_Z_MM = 7.5
 TARGET_X_MM = 3.4
 
 # 位置や周波数の一致判定
@@ -27,16 +27,16 @@ FREQ_ATOL_GHZ = 1e-3
 POS_ATOL_MM = 1e-6
 
 # レーザー周波数
-LASER_HZ = 50
+LASER_HZ = 2
 
 # 温度周期が1 Hzなら1秒を50分割
-N_PHASE_BINS = 50
+N_PHASE_BINS = 2
 
 # 入力
 # "cloud": OneDrive / CloudStorage側
 # "local": KIDANALYSIS/data/20260527側
 # "both" : 両方
-INPUT_MODE = "cloud"
+INPUT_MODE = "local"
 
 NPZ_PATTERN = "wf_*.npz"
 RECURSIVE_SEARCH = False
@@ -73,10 +73,20 @@ try:
 except NameError:
     HERE = Path.cwd()
 
-OUT_DIR = HERE / "data" / DATA_DATE / "phase50_amp_ped"
+# 解析結果の保存先：スクリプト側の data/ 以下
+OUT_DIR = HERE / "data" / DATA_DATE / "phase2_amp_ped"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-local_data_dir = HERE / "data" / DATA_DATE
+# 入力データ：外付けSSD /Volumes/NO NAME/data/20260618
+local_data_dir = Path("/Volumes/NO NAME/data") / DATA_DATE
+
+if not local_data_dir.exists():
+    raise FileNotFoundError(
+        f"ローカルデータフォルダが見つかりません: {local_data_dir}"
+    )
+
+print(f"Input data directory: {local_data_dir}")
+print(f"Output directory:     {OUT_DIR}")
 
 cloud_data_candidates = [
     Path.home()
