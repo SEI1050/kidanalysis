@@ -10,3 +10,6 @@ data/
 *.pdf
 *.png
 *.csv
+
+# Python virtual environments
+/.venv_py312/
