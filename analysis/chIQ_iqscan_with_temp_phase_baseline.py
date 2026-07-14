@@ -9,26 +9,35 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import Normalize
 
-TARGET_FREQUENCY_HZ = 5.476e9
+TARGET_FREQUENCY_HZ = 5.501e9
 # =============================================================================
 # SETTINGS
 # =============================================================================
-IQSCAN_DIR = Path("/Volumes/NO NAME/data/iqscan0703")
+IQSCAN_DIR = Path("/Volumes/NO NAME/data/20260709")
+# WAVEFORM_FILE = Path(
+#     "/Volumes/NO NAME/data/20260527/5.476GHz_z=7.5mm_x=3.4mm/"
+#     "wf_260527_142822_49.73Hz.npz"
+# )
+
+# OUTPUT_DIR = Path(
+#     "/Users/kubokosei/software/kidanalysis/analysis/data/20260527/"
+#     "iqscan0703_temp_phase_overlay"
+# )
 WAVEFORM_FILE = Path(
-    "/Volumes/NO NAME/data/20260527/5.476GHz_z=7.5mm_x=3.4mm/"
-    "wf_260527_142822_49.73Hz.npz"
+    "/Volumes/NO NAME/data/20260709/5.501GHz_z=8.0mm_x=4.4mm_first/"
+    "wf_260709_175104_49.78Hz.npz"
 )
 
 OUTPUT_DIR = Path(
-    "/Users/kubokosei/software/kidanalysis/analysis/data/20260527/"
-    "iqscan0703_temp_phase_overlay"
+    "/Users/kubokosei/software/kidanalysis/analysis/data/20260709/"
+    "iqscan0709_temp_phase_overlay"
 )
-
 # iqscan0703 内のファイル名が iq_5.80K.npz, iq_6.30K.npz であることを想定。
-SCAN_TEMPERATURES_K = (5.80, 6.30)
+# SCAN_TEMPERATURES_K = (3.62, 3.60)
+SCAN_TEMPERATURES_K = (3.62, )
 
 # 波形ファイル名に合わせて 49.73 Hz を初期値にする。
-EVENT_RATE_HZ = 49.73
+EVENT_RATE_HZ = 49.78
 TEMP_MODULATION_HZ = 1.0
 N_PHASE_BINS = 50
 
@@ -217,6 +226,7 @@ def plot_overlay(
         near_idx = int(np.argmin(np.abs(freq_hz - TARGET_FREQUENCY_HZ)))
 
         start_freq_ghz = freq_hz[start_idx] / 1e9
+        fin_freq_ghz = freq_hz[-1] / 1e9
         near_freq_ghz = freq_hz[near_idx] / 1e9
         delta_freq_khz = (freq_hz[near_idx] - TARGET_FREQUENCY_HZ) / 1e3
 
@@ -235,6 +245,20 @@ def plot_overlay(
                 f"{start_freq_ghz:.6f} GHz"
             ),
         )
+        ax.scatter(
+            x_scan[-1],
+            y_scan[-1],
+            marker="<",
+            s=95,
+            facecolor="crimson",
+            edgecolor="k",
+            linewidth=0.8,
+            zorder=7,
+            label=(
+                f"{temperature_k:.2f} K end: "
+                f"{fin_freq_ghz:.6f} GHz"
+            ),
+        )
 
         # 5.476 GHz に最も近い scan 点
         ax.scatter(
@@ -247,7 +271,7 @@ def plot_overlay(
             linewidth=0.8,
             zorder=8,
             label=(
-                f"{temperature_k:.2f} K nearest 5.476 GHz: "
+                f"{temperature_k:.2f} K nearest 5.501 GHz: "
                 f"{near_freq_ghz:.6f} GHz "
                 f"({delta_freq_khz:+.1f} kHz)"
             ),
@@ -256,7 +280,8 @@ def plot_overlay(
         print(
             f"[iq scan] {scan_path.name}: N={len(freq_hz)}, "
             f"start={start_freq_ghz:.6f} GHz, "
-            f"nearest 5.476 GHz={near_freq_ghz:.6f} GHz "
+            f"end={fin_freq_ghz:.6f} GHz, "
+            f"nearest 5.501 GHz={near_freq_ghz:.6f} GHz "
             f"({delta_freq_khz:+.1f} kHz), "
             f"range={freq_hz.min()/1e9:.6f}--{freq_hz.max()/1e9:.6f} GHz, "
             f"swap_iqscan_axes={swap_iqscan_axes}"

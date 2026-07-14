@@ -34,8 +34,8 @@ import pandas as pd
 # SETTINGS
 # =============================================================================
 
-DATA_DATE = "20260527"
-TARGET_DIR_NAME = "5.476GHz_z=7.5mm_x=3.4mm"
+DATA_DATE = "20260709"
+TARGET_DIR_NAME = "5.501GHz_z=8.0mm_x=4.4mm_first"
 NPZ_PATTERN = "wf_*.npz"
 
 # first data の先頭から使うイベント数

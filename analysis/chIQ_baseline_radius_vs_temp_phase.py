@@ -22,19 +22,23 @@ import numpy as np
 # =============================================================================
 # SETTINGS
 # =============================================================================
+# INPUT_PATH = Path(
+#     "/Volumes/NO NAME/data/20260527/"
+#     "5.476GHz_z=7.5mm_x=3.4mm/wf_260527_142822_49.73Hz.npz"
+# )
 INPUT_PATH = Path(
-    "/Volumes/NO NAME/data/20260527/"
-    "5.476GHz_z=7.5mm_x=3.4mm/wf_260527_142822_49.73Hz.npz"
+    "/Volumes/NO NAME/data/20260709/"
+    "5.501GHz_z=8.0mm_x=4.4mm_first/wf_260709_175104_49.78Hz.npz"
 )
 
 OUTPUT_DIR = Path(
-    "/Users/kubokosei/software/kidanalysis/analysis/data/20260527/"
+    "/Users/kubokosei/software/kidanalysis/analysis/data/20260709/"
     "baseline_radius_temp_phase_5p476GHz_z7p5mm_x3p4mm"
 )
 
 # The filename records 49.73 Hz.  Change this only when the acquisition rate
 # is known more accurately from the measurement log.
-LASER_REPETITION_HZ = 49.73
+LASER_REPETITION_HZ = 49.78
 TEMPERATURE_FREQUENCY_HZ = 1.0
 PHASE_OFFSET_CYCLES = 0.0  # Set after a temperature-trigger measurement, if available.
 
