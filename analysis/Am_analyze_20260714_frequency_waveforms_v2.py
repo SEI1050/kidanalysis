@@ -13,11 +13,11 @@ DATA_ROOT = Path("/Volumes/NO NAME/data/20260714")
 
 # 解析したい周波数を手入力する。
 # 例: "4.463GHz", "5.161GHz", "5.267GHz"
-TARGET_FREQUENCY = "4.463GHz"
+TARGET_FREQUENCY = "5.161GHz"
 
 # 波形を何サンプルずつ平均して1 binにするか。
 # 1ならbin化なし。
-SAMPLE_BIN = 1
+SAMPLE_BIN = 20
 
 # IQ trackで使用するサンプルのstride。
 # 5なら、0, 5, 10, 15, ... 番目を使用する。
