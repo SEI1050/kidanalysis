@@ -38,7 +38,7 @@ from matplotlib.figure import Figure
 # SETTINGS
 # =============================================================================
 
-ROOT_DIR = Path("/Volumes/NO NAME/data/20260709")
+ROOT_DIR = Path("/Volumes/NO NAME/data/20260714")
 
 DEFAULT_SAMPLE_RATE_HZ = 2.5e9
 DEFAULT_N_EVENTS = 25
@@ -149,12 +149,12 @@ def load_waveform_npz(path: Path) -> tuple[np.ndarray, np.ndarray, float] | None
             ch0_candidates = [
                 "ch0", "CH0", "Ch0", "channel0", "Channel0",
                 "wave0", "wf0", "y0", "data_ch0",
-                "ch0_waveform", "ch0_wf", "trace0",
+                "ch0_waveform", "ch0_wf", "trace0","z=", "x=","GHz",
             ]
             ch1_candidates = [
                 "ch1", "CH1", "Ch1", "channel1", "Channel1",
                 "wave1", "wf1", "y1", "data_ch1",
-                "ch1_waveform", "ch1_wf", "trace1",
+                "ch1_waveform", "ch1_wf", "trace1","z=", "x=","GHz",
             ]
 
             ch0 = get_array_by_candidates(z, ch0_candidates)
@@ -221,19 +221,48 @@ def waveform_npz_files(run_dir: Path) -> list[Path]:
 
 def discover_run_dirs(root: Path) -> list[Path]:
     """
-    ROOT_DIR直下の data_* フォルダを候補にする。
-    もし直下に無ければ、再帰的に data_* を探す。
+    .npzファイルを含むフォルダをrun候補にする。
+
+    フォルダ名には依存しないので、例えば
+      5.267GHz_trig_ch0_2.0mV/
+      data_0714_173939/
+    のような名前でも読み込める。
+    ルート直下に.npzがある場合は、ルート自身も候補にする。
     """
     if not root.exists():
         return []
 
-    # direct = sorted([p for p in root.iterdir() if p.is_dir() and p.name.startswith("data_")])
-    direct = sorted([p for p in root.iterdir() if p.is_dir() and p.name.startswith("5.501")])
-    if direct:
-        return direct
+    def contains_npz(directory: Path) -> bool:
+        files = waveform_npz_files(directory)
+        return len(files) > 0
 
-    found = sorted([p for p in root.rglob("data_*") if p.is_dir()])
-    return found
+    candidates: list[Path] = []
+
+    # 画像のように、ルート直下に波形ファイルが置かれる構造に対応。
+    if contains_npz(root):
+        candidates.append(root)
+
+    # ルート直下の各フォルダを、名前ではなく中身で判定する。
+    direct = [
+        directory
+        for directory in root.iterdir()
+        if directory.is_dir()
+        and directory.name != "bin"
+        and contains_npz(directory)
+    ]
+    candidates.extend(sorted(direct))
+    if direct:
+        return candidates
+
+    # さらに深い階層にある場合のfallback。
+    found = [
+        directory
+        for directory in root.rglob("*")
+        if directory.is_dir()
+        and directory.name != "bin"
+        and contains_npz(directory)
+    ]
+    return candidates + sorted(found)
 
 
 def count_events_in_file(path: Path) -> tuple[int, int, float] | None:
