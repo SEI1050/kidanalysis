@@ -19,6 +19,11 @@ BIN_SIZE = 1
 # The 10% level is searched after the peak and before the peak.
 THRESHOLD_FRACTION = 0.10
 
+# Histogram event-selection thresholds.
+AMP_THRESHOLD = 0.004
+TAU_R_EFF_THRESHOLD = 20.0
+TAU_D_EFF_THRESHOLD = 20.0
+
 
 def linear_crossing(time_ns, signal, level, start, stop, direction):
 	"""Return the linearly interpolated time where signal reaches level."""
@@ -128,11 +133,14 @@ def analyze_event(time_ns, ch0_waveform, ch1_waveform, ref_position):
 		t10_left,
 		peak_time,
 	)
+	# If the decay is still above 10% at the record end, integrate the
+	# available truncated waveform instead of discarding the right integral.
+	right_integral_end = t10_right if np.isfinite(t10_right) else time_ns[-1]
 	right_integral = integral_between(
 		time_ns,
 		signal,
 		peak_time,
-		t10_right,
+		right_integral_end,
 	)
 
 	# Integral [mV ns] / amplitude [mV] = ns.
@@ -220,6 +228,22 @@ def main():
 		"fwhm_10",
 	]
 	parameters = pd.DataFrame(results)[columns]
+	amplitude = pd.to_numeric(parameters["amp"], errors="coerce")
+	tau_r_eff = pd.to_numeric(parameters["tau_r_eff"], errors="coerce")
+	tau_d_eff = pd.to_numeric(parameters["tau_d_eff"], errors="coerce")
+	finite = (
+		np.isfinite(amplitude)
+		& np.isfinite(tau_r_eff)
+		& np.isfinite(tau_d_eff)
+	)
+	selected = finite & (
+		(amplitude > AMP_THRESHOLD)
+		| (
+			(tau_r_eff > TAU_R_EFF_THRESHOLD)
+			& (tau_d_eff > TAU_D_EFF_THRESHOLD)
+		)
+	)
+	not_selected = finite & ~selected
 
 	basename = os.path.splitext(os.path.basename(filename))[0]
 	csvname = basename + "_amp_tau_eff.csv"
@@ -236,6 +260,32 @@ def main():
 	with PdfPages(pdfname) as pdf:
 		ncol = 4
 		nrow = 4
+
+		# Raw ch0 and ch1 waveforms before pedestal subtraction.
+		figure, axes = plt.subplots(
+			nrow,
+			ncol,
+			figsize=(16, 9),
+			sharex=True,
+			sharey=True,
+		)
+		axes = np.asarray(axes).ravel()
+		for event_index in range(min(nrow * ncol, nwf)):
+			axis = axes[event_index]
+			axis.plot(time_ns, ch0[event_index] * 1e3, color="C0", linewidth=0.8, label="ch0")
+			axis.plot(time_ns, ch1[event_index] * 1e3, color="C1", linewidth=0.8, label="ch1")
+			axis.set_title(f"event {event_index}")
+			axis.grid(alpha=0.3)
+			if event_index == 0:
+				axis.legend(fontsize=7, loc="best")
+		for axis in axes:
+			axis.set_xlabel("Time [ns]")
+			axis.set_ylabel("raw signal [mV]")
+		figure.suptitle("Raw ch0/ch1, pedestal not subtracted")
+		figure.tight_layout()
+		pdf.savefig(figure)
+		plt.close(figure)
+
 		figure, axes = plt.subplots(
 			nrow,
 			ncol,
@@ -252,17 +302,23 @@ def main():
 			axis.axvline(row["t10_left"], color="C2", ls=":")
 			axis.axvline(row["t_peak"], color="k", ls="-")
 			axis.axvline(row["t10_right"], color="C3", ls=":")
-			axis.set_title(f"event {event_index}")
+			tau_r = row["tau_r_eff"]
+			tau_d = row["tau_d_eff"]
+			axis.set_title(
+				f"event {event_index}\n"
+				f"tau_r={tau_r:.1f}, tau_d={tau_d:.1f}"
+			)
 			axis.grid(alpha=0.3)
 
 		for axis in axes:
 			axis.set_xlabel("Time [ns]")
 			axis.set_ylabel("sqrt(ch0^2 + ch1^2) [mV]")
+		figure.suptitle("Absolute signal")
 		figure.tight_layout()
 		pdf.savefig(figure)
 		plt.close(figure)
 
-		# Histograms of the measured quantities.
+		# Standard histograms without any event selection.
 		histogram_names = [
 			"amp",
 			"t10_left",
@@ -276,17 +332,55 @@ def main():
 		]
 		figure, axes = plt.subplots(3, 3, figsize=(16, 9))
 		for axis, name in zip(axes.ravel(), histogram_names):
-			values = parameters[name].to_numpy(dtype=float)
+			values = pd.to_numeric(parameters[name], errors="coerce")
+			values = values.to_numpy(dtype=float)
 			values = values[np.isfinite(values)]
 			if values.size:
 				axis.hist(values, bins=100, color="C0")
 			axis.set_xlabel(name)
 			axis.set_ylabel("counts")
 			axis.grid(alpha=0.3)
+		figure.suptitle("All events")
 		figure.tight_layout()
 		pdf.savefig(figure)
 		plt.close(figure)
 
+		# Histograms with event selection based on the thresholds.
+		figure, axes = plt.subplots(3, 3, figsize=(16, 9))
+		for axis, name in zip(axes.ravel(), histogram_names):
+			values = pd.to_numeric(parameters[name], errors="coerce")
+			for mask, label, color in (
+				(selected, "selected", "C0"),
+				(not_selected, "not selected", "C1"),
+			):
+				group_values = values[mask].to_numpy(dtype=float)
+				group_values = group_values[np.isfinite(group_values)]
+				if group_values.size:
+					axis.hist(
+						group_values, bins=100, histtype="step",
+						color=color, linewidth=1.2, label=label,
+					)
+			axis.set_xlabel(name)
+			axis.set_ylabel("counts")
+			axis.grid(alpha=0.3)
+			axis.legend(fontsize=7)
+		figure.suptitle(
+			"Thresholded events: amp > %.3g or (tau_r_eff > %.3g and tau_d_eff > %.3g)" % (
+				AMP_THRESHOLD, TAU_R_EFF_THRESHOLD, TAU_D_EFF_THRESHOLD,
+			)
+		)
+		figure.tight_layout()
+		pdf.savefig(figure)
+		plt.close(figure)
+
+	print("finite events for thresholding =", finite.sum())
+	print("selected events =", selected.sum())
+	print("not selected events =", not_selected.sum())
+	print(
+		"histogram thresholds: amp >", AMP_THRESHOLD,
+		", tau_r_eff >", TAU_R_EFF_THRESHOLD,
+		", tau_d_eff >", TAU_D_EFF_THRESHOLD,
+	)
 	print("saved:", pdfname)
 
 
