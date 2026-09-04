@@ -20,7 +20,7 @@ BIN_SIZE = 1
 THRESHOLD_FRACTION = 0.10
 
 # Histogram event-selection thresholds.
-AMP_THRESHOLD = 0.004
+AMP_THRESHOLD = 0.002
 TAU_R_EFF_THRESHOLD = 20.0
 TAU_D_EFF_THRESHOLD = 20.0
 
@@ -337,6 +337,8 @@ def main():
 			values = values[np.isfinite(values)]
 			if values.size:
 				axis.hist(values, bins=100, color="C0")
+			if name == "amp":
+				axis.set_yscale("log")
 			axis.set_xlabel(name)
 			axis.set_ylabel("counts")
 			axis.grid(alpha=0.3)
@@ -360,6 +362,8 @@ def main():
 						group_values, bins=100, histtype="step",
 						color=color, linewidth=1.2, label=label,
 					)
+			if name == "amp":
+				axis.set_yscale("log")
 			axis.set_xlabel(name)
 			axis.set_ylabel("counts")
 			axis.grid(alpha=0.3)

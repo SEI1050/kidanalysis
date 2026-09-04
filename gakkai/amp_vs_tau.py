@@ -10,7 +10,7 @@ import pandas as pd
 
 # The CSV file is in the same directory as this script.
 INPUT_FILE = Path(__file__).with_name(
-	"alpha4.5K_combined_amp_tau_eff.csv"
+	"alphaDC_combined_amp_tau_eff.csv"
 )
 
 # The output files will also be saved in the same directory.
@@ -23,9 +23,13 @@ LOG_OUTPUT_FILE = INPUT_FILE.with_name(
 
 # An event is selected when its amplitude exceeds AMP_THRESHOLD, or when
 # both effective time constants exceed their respective thresholds.
-AMP_THRESHOLD = 0.004
+AMP_THRESHOLD = 0.002
+AMP_UPPER_THRESHOLD = 0.1
 TAU_R_THRESHOLD = 20.0
+TAU_R_UPPER_THRESHOLD = 300.0
 TAU_D_THRESHOLD = 20.0
+TAU_D_UPPER_THRESHOLD = 2000.0
+
 
 
 def plot_histograms(output_path, *, log_counts=False):
@@ -48,14 +52,18 @@ def plot_histograms(output_path, *, log_counts=False):
 		& np.isfinite(tau_r_eff)
 		& np.isfinite(tau_d_eff)
 	)
-	selected = finite & (
+	amp_valid = finite & (amplitude > 0)
+	selected = amp_valid & (
 		(amplitude > AMP_THRESHOLD)
 		| (
 			(tau_r_eff > TAU_R_THRESHOLD)
 			& (tau_d_eff > TAU_D_THRESHOLD)
 		)
 	)
-	not_selected = finite & ~selected
+	selected = selected & (amplitude <= AMP_UPPER_THRESHOLD)
+	selected = selected & (tau_r_eff <= TAU_R_UPPER_THRESHOLD)
+	selected = selected & (tau_d_eff <= TAU_D_UPPER_THRESHOLD)
+	not_selected = amp_valid & ~selected
 
 	if not finite.any():
 		raise ValueError("No finite amp/tau values were found in the CSV.")
@@ -70,24 +78,32 @@ def plot_histograms(output_path, *, log_counts=False):
 			(axes[row, 0], tau_r_eff, "tau_r_eff"),
 			(axes[row, 1], tau_d_eff, "tau_d_eff"),
 		):
-			if mask.any():
+			mask_plot = (
+				mask
+				& (amplitude > 0)
+				& (amplitude <= AMP_UPPER_THRESHOLD)
+				& (tau <= TAU_R_UPPER_THRESHOLD if tau_name == "tau_r_eff" else tau <= TAU_D_UPPER_THRESHOLD)
+			)
+			if mask_plot.any():
 				if log_counts:
 					histogram = axis.hist2d(
-						tau[mask], amplitude[mask], bins=200, cmap="viridis",
+						amplitude[mask_plot], tau[mask_plot], bins=200, cmap="viridis",
 						norm=LogNorm(vmin=1, vmax=max(2, int(np.nanmax(np.histogram2d(
-							tau[mask], amplitude[mask], bins=200,
+							amplitude[mask_plot], tau[mask_plot], bins=200,
 						)[0]
 						))))
 					)
 					figure.colorbar(histogram[3], ax=axis, label="log10(counts)")
 				else:
 					histogram = axis.hist2d(
-						tau[mask], amplitude[mask], bins=200, cmap="viridis",
+						amplitude[mask_plot], tau[mask_plot], bins=200, cmap="viridis",
 					)
 					figure.colorbar(histogram[3], ax=axis, label="counts")
-			axis.set_title(f"{group_name}: amplitude vs {tau_name} (n={mask.sum()})")
-			axis.set_xlabel(tau_name)
-			axis.set_ylabel("amp")
+			axis.set_title(f"{group_name}: amp vs {tau_name} (n={mask_plot.sum()})")
+			axis.set_xlabel("amp")
+			axis.set_ylabel(tau_name)
+			axis.set_xscale("log")
+			axis.set_xlim(left=AMP_THRESHOLD * 0.5, right=AMP_UPPER_THRESHOLD)
 			axis.grid(alpha=0.25)
 
 	if log_counts:
@@ -111,8 +127,11 @@ def main():
 	print(
 		"Thresholds: "
 		f"amp > {AMP_THRESHOLD}, "
+		f"amp <= {AMP_UPPER_THRESHOLD}, "
 		f"tau_r_eff > {TAU_R_THRESHOLD}, "
-		f"tau_d_eff > {TAU_D_THRESHOLD}"
+		f"tau_r_eff <= {TAU_R_UPPER_THRESHOLD}, "
+		f"tau_d_eff > {TAU_D_THRESHOLD}, "
+		f"tau_d_eff <= {TAU_D_UPPER_THRESHOLD}"
 	)
 	print(f"Saved: {OUTPUT_FILE}")
 	print(f"Saved: {LOG_OUTPUT_FILE}")

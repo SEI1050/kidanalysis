@@ -303,9 +303,9 @@ RF_POSITION_FILES = {
 	(6.3, 4.6): ("144835", "144913", "131249"),
 	(6.3, 5.1): ("143521", "143557", "134447"),
 	(6.3, 5.6): ("142610", "142644", "132809"),
-	(6.1, 5.1): ("143735", "143810", "133545"),
+	(6.1, 5.1): ("143735", "143810", "134328"),
 	(6.0, 4.3): ("142128", "142207", "132441"),
-	(6.0, 4.6): ("144624", "144702", "131920"),
+	(6.0, 4.6): ("144624", "144702", "131518"),
 	(6.0, 5.1): ("143938", "144012", "134208"),
 	(6.0, 5.6): ("142406", "142440", "132725"),
 	(5.7, 4.6): ("144402", "144439", "131703"),
@@ -316,6 +316,7 @@ RF_LABELS = ("0 dBm", "-5 dBm", "-2 dBm")
 RF_COLORS = ("#70fa70", "#101070", "#1688ff")
 SELECTED_RF_INDEX = 2
 RANDOM_EVENT_COUNT = 100
+RAW_RANDOM_EVENT_COUNT = 10
 RANDOM_SEED = 0
 
 
@@ -527,11 +528,46 @@ def process_position_rf_comparison(root):
 			figure.tight_layout()
 			pdf.savefig(figure)
 			plt.close(figure)
+
+		# Add the raw (unnormalized) mean I, Q, and projected waveforms spatially.
+		for wave_name, wave_label in (
+			("mean_i", "I (ch0)"),
+			("mean_q", "Q (ch1)"),
+			("mean_proj", "Proj"),
+		):
+			figure, axes = plt.subplots(
+				len(requested_z), len(requested_x), figsize=(12, 15),
+				squeeze=False, sharex=True, sharey=True,
+			)
+			for row_index, z_position in enumerate(requested_z):
+				for column_index, x_position in enumerate(requested_x):
+					axis = axes[row_index, column_index]
+					groups = position_groups.get((z_position, x_position), [])
+					for group in groups:
+						axis.plot(
+							group["time_ns"] / 1000,
+							group[wave_name],
+							color=group["color"], linewidth=1.2,
+							label=group["label"],
+						)
+					axis.set_title(f"x={x_position:.1f}, z={z_position:.1f} mm")
+					axis.set_xlim(-0.35, 1.65)
+					axis.grid(alpha=0.3)
+					if column_index == 0:
+						axis.set_ylabel("raw voltage")
+					if row_index == len(requested_z) - 1:
+						axis.set_xlabel("time [us]")
+					if row_index == 0 and column_index == 0:
+						axis.legend(fontsize=7)
+			figure.suptitle(f"Position dependence of raw {wave_label} mean waveform")
+			figure.tight_layout()
+			pdf.savefig(figure)
+			plt.close(figure)
 	print("saved:", output)
 
 
 def process_position_waveforms(root):
-	"""Plot -2 dBm waveforms and 100 random events on x-z position grids."""
+	"""Plot -2 dBm waveforms and random events on x-z position grids."""
 	output = root / "Loc_wave_-2dBm_random100.pdf"
 	requested_z = (6.7, 6.5, 6.3, 6.1, 6.0)
 	requested_x = (4.6, 5.1)
@@ -552,6 +588,11 @@ def process_position_waveforms(root):
 			replace=False,
 		)
 		result["selected_events"] = selected
+		result["raw_selected_events"] = rng.choice(
+			event_count,
+			size=min(RAW_RANDOM_EVENT_COUNT, event_count),
+			replace=False,
+		)
 		position_results[(z_position, x_position)] = result
 
 	with PdfPages(output) as pdf:
@@ -597,6 +638,77 @@ def process_position_waveforms(root):
 				axis.margins(y=0.08)
 			figure.suptitle(
 				f"-2 dBm: random {RANDOM_EVENT_COUNT} events and mean waveform ({wave_label})"
+			)
+			figure.tight_layout()
+			pdf.savefig(figure)
+			plt.close(figure)
+
+		# Add raw (unnormalized) mean I, Q, and projected waveforms for the same x-z grid.
+		for wave_name, wave_label in (
+			("mean_i", "I (ch0)"),
+			("mean_q", "Q (ch1)"),
+			("mean_proj", "Proj"),
+		):
+			figure, axes = plt.subplots(
+				len(requested_z), len(requested_x), figsize=(12, 15),
+				squeeze=False, sharex=True, sharey=True,
+			)
+			for row_index, z_position in enumerate(requested_z):
+				for column_index, x_position in enumerate(requested_x):
+					axis = axes[row_index, column_index]
+					result = position_results.get((z_position, x_position))
+					if result is not None:
+						axis.plot(
+							result["time_ns"] / 1000,
+							result[wave_name],
+							color="C0", linewidth=1.8,
+						)
+					axis.set_title(f"x={x_position:.1f}, z={z_position:.1f} mm")
+					axis.set_xlim(-0.35, 1.65)
+					axis.grid(alpha=0.3)
+					if column_index == 0:
+						axis.set_ylabel("raw voltage")
+					if row_index == len(requested_z) - 1:
+						axis.set_xlabel("time [us]")
+			figure.suptitle(f"-2 dBm: raw mean waveform ({wave_label})")
+			figure.tight_layout()
+			pdf.savefig(figure)
+			plt.close(figure)
+
+		# Add pedestal-subtracted, unnormalized overlays of 10 random events.
+		for wave_name, event_name, wave_label in (
+			("mean_i", "event_i", "I (ch0)"),
+			("mean_q", "event_q", "Q (ch1)"),
+			("mean_proj", "event_proj", "Proj"),
+		):
+			figure, axes = plt.subplots(
+				len(requested_z), len(requested_x), figsize=(12, 15),
+				squeeze=False, sharex=True, sharey=True,
+			)
+			for row_index, z_position in enumerate(requested_z):
+				for column_index, x_position in enumerate(requested_x):
+					axis = axes[row_index, column_index]
+					result = position_results.get((z_position, x_position))
+					if result is not None:
+						for event_number, event_index in enumerate(
+							result["raw_selected_events"]
+						):
+							axis.plot(
+								result["time_ns"] / 1000,
+								result[event_name][event_index],
+								color=plt.get_cmap("tab10")(event_number),
+								alpha=0.9, linewidth=0.9,
+							)
+					axis.set_title(f"x={x_position:.1f}, z={z_position:.1f} mm")
+					axis.set_xlim(-0.35, 1.65)
+					axis.grid(alpha=0.3)
+					if column_index == 0:
+						axis.set_ylabel("pedestal-subtracted voltage")
+					if row_index == len(requested_z) - 1:
+						axis.set_xlabel("time [us]")
+			figure.suptitle(
+				f"-2 dBm: {RAW_RANDOM_EVENT_COUNT} random pedestal-subtracted events "
+				f"({wave_label})"
 			)
 			figure.tight_layout()
 			pdf.savefig(figure)
