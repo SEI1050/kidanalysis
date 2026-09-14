@@ -38,7 +38,7 @@ from matplotlib.figure import Figure
 # SETTINGS
 # =============================================================================
 
-ROOT_DIR = Path("/Volumes/NO NAME/data/20260714")
+ROOT_DIR = Path("/Volumes/NO NAME/data/20260827/data_0826_204254/")
 
 DEFAULT_SAMPLE_RATE_HZ = 2.5e9
 DEFAULT_N_EVENTS = 25
